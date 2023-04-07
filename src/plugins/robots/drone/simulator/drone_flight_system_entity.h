@@ -79,6 +79,14 @@ namespace argos {
          return m_cTargetPosition;
       }
 
+      void SetTargetVelocity(const CVector3& c_velocity) {
+         m_cTargetVelocity = c_velocity;
+      }
+
+      const CVector3& GetTargetVelocity() const {
+         return m_cTargetVelocity;
+      }
+
       void SetTargetYawAngle(const CRadians f_yaw_angle) {
          m_fTargetYawAngle = f_yaw_angle;
       }
@@ -87,8 +95,32 @@ namespace argos {
          return m_fTargetYawAngle;
       }
 
+      void SetTargetYawVelocity(const CRadians f_yaw_velocity) {
+         m_fTargetYawVelocity = f_yaw_velocity;
+      }
+
+      const CRadians& GetTargetYawVelocity() const {
+         return m_fTargetYawVelocity;
+      }
+
       virtual std::string GetTypeDescription() const {
          return "flight_system";
+      }
+
+      void SetIdealMode(const bool b_ideal_mode) {
+         m_bIdealMode = b_ideal_mode;
+      }
+
+      const bool GetIdealMode() const {
+         return m_bIdealMode;
+      }
+
+      void SetVelocityMode(const bool b_velocity_mode) {
+         m_bVelocityMode = b_velocity_mode;
+      }
+
+      const bool GetVelocityMode() const {
+         return m_bVelocityMode;
       }
 
    private:
@@ -97,8 +129,11 @@ namespace argos {
       CVector3 m_cVelocityReading;
       CVector3 m_cAngularVelocityReading;
       CVector3 m_cTargetPosition;
+      CVector3 m_cTargetVelocity;
       CRadians m_fTargetYawAngle;
-      
+      CRadians m_fTargetYawVelocity;
+      bool m_bIdealMode;
+      bool m_bVelocityMode;
    };
 }
 

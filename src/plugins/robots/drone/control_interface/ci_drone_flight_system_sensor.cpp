@@ -25,6 +25,7 @@ namespace argos {
       CLuaUtility::AddToTable(pt_lua_state, "velocity", GetVelocity());
       CLuaUtility::AddToTable(pt_lua_state, "angular_velocity", GetAngularVelocity());
       CLuaUtility::AddToTable(pt_lua_state, "target_position", GetTargetPosition());
+      CLuaUtility::AddToTable(pt_lua_state, "target_velocity", GetTargetVelocity());
       CLuaUtility::AddToTable(pt_lua_state, "height", GetHeight());
       CLuaUtility::AddToTable(pt_lua_state, "battery_voltage", GetBatteryVoltage());
       CLuaUtility::AddToTable(pt_lua_state, "temperature", GetTemperature());
@@ -44,6 +45,7 @@ namespace argos {
       CLuaUtility::AddToTable(pt_lua_state, "velocity", GetVelocity());
       CLuaUtility::AddToTable(pt_lua_state, "angular_velocity", GetAngularVelocity());
       CLuaUtility::AddToTable(pt_lua_state, "target_position", GetTargetPosition());
+      CLuaUtility::AddToTable(pt_lua_state, "target_velocity", GetTargetVelocity());
       CLuaUtility::AddToTable(pt_lua_state, "height", GetHeight());
       CLuaUtility::AddToTable(pt_lua_state, "battery_voltage", GetBatteryVoltage());
       CLuaUtility::AddToTable(pt_lua_state, "temperature", GetTemperature());

@@ -56,20 +56,25 @@ namespace argos
       /* reset the drone's angular velocity */
       m_cAngularVelocity.Set(0.0, 0.0, 0.0);
       m_cAngularVelocityPrev.Set(0.0, 0.0, 0.0);
+       /* reset the drone's acceleration */
+      m_cAccelerometer.Set(0.0, 0.0, 0.0);
       /* reset the drone's previous acceleration */
       m_cAccelerationPrev.Set(0.0, 0.0, 0.0);
       /* reset the drone's previous angular acceleration */
       m_cAngularAccelerationPrev.Set(0.0, 0.0, 0.0);
       /* reset the variables for PID controller  */
+      m_cPositionError.Set(0.0, 0.0, 0.0);
       m_cOrientationTargetPrev.Set(0.0, 0.0, 0.0);
       m_cAngularVelocityCumulativeError.Set(0.0, 0.0, 0.0);
-      m_fAltitudeCumulativeError = 0.0;
-      m_fTargetPositionZPrev = 0.0;
-      /* reset the gyro bias */   
+      m_cPositionCumulativeError.Set(0.0, 0.0, 0.0);
+      /* set the gyro bias */
       m_fGyroBias = MEMS_GYRO_BIAS_INIT;
-      m_fAccelBias = MEMS_ACCEL_BIAS_INIT;   
+      /* set the accelerometer bias */
+      m_fAccelBias = MEMS_ACCEL_BIAS_INIT;
+      /* set the angle and velocity random walks */
       m_fAngleRandomWalk = MEMS_GYRO_RANDOM_WALK_INIT;
       m_fVelocityRandomWalk = MEMS_ACCEL_RANDOM_WALK_INIT;
+      /* create the random number generator */
       m_pcRNG = CRandom::CreateRNG("argos");
       /* update the axis-aligned bounding box, anchors, and entities */
       UpdateEntityStatus();
@@ -102,70 +107,130 @@ namespace argos
       CVector3 cTargetPosition(m_cFlightSystemEntity.GetTargetPosition());
       m_cInputPosition =
          m_cHomePosition + cTargetPosition.RotateZ(CRadians(m_fHomeYawAngle));
+      CVector3 cTargetVelocity(m_cFlightSystemEntity.GetTargetVelocity());
+      m_cInputVelocity = cTargetVelocity.RotateZ(CRadians(m_fHomeYawAngle));
       m_fInputYawAngle =
          m_fHomeYawAngle + m_cFlightSystemEntity.GetTargetYawAngle().GetValue();
+      m_fInputYawVelocity = m_cFlightSystemEntity.GetTargetYawVelocity().GetValue();
    }
 
    /****************************************/
    /****************************************/
 
    void CPointMass3DDroneModel::UpdatePhysics() {
-      /* update the position (XY) and altitude (Z) controller */
-      CVector3 cPositionError(m_cInputPosition - m_cPosition);
-      /* accumulate the altitude error */
-      m_fAltitudeCumulativeError += cPositionError.GetZ() * GetPM3DEngine().GetPhysicsClockTick();
-      /* calculate the azimuth contribution to the navigation of drone on XY plane */
-      Real fAzimuth = std::atan2(std::abs(cPositionError.GetY()),
-                                 std::abs(cPositionError.GetX()));
+      if (m_cFlightSystemEntity.GetIdealMode()) {
+         m_cVelocity = m_cInputVelocity;
+         m_cAngularVelocity.SetZ(m_fInputYawVelocity);
+
+         CQuaternion cOrientationInQuaternion;
+         cOrientationInQuaternion.FromEulerAngles(
+            CRadians(m_cOrientation.GetZ()),
+            CRadians(m_cOrientation.GetY()),
+            CRadians(m_cOrientation.GetX())
+         );
+         m_cPosition += m_cVelocity * GetPM3DEngine().GetPhysicsClockTick();
+         m_cOrientation += m_cAngularVelocity * GetPM3DEngine().GetPhysicsClockTick();
+         return;
+      }
       /* calculate velocity limits */
-      CRange<Real> cVelocityLimitX(-XY_VEL_MAX * std::cos(fAzimuth), XY_VEL_MAX * std::cos(fAzimuth));
-      CRange<Real> cVelocityLimitY(-XY_VEL_MAX * std::sin(fAzimuth), XY_VEL_MAX * std::sin(fAzimuth));
+      CRange<Real> cVelocityLimitX(-XY_VEL_MAX, XY_VEL_MAX);
+      CRange<Real> cVelocityLimitY(-XY_VEL_MAX, XY_VEL_MAX);
       CRange<Real> cVelocityLimitZ(-Z_VEL_MAX, Z_VEL_MAX);
-      /* calculate desired XYZ velocities */
-      Real fTargetTransVelX =
-         cPositionError.GetX() * XY_POS_KP;
-      Real fTargetTransVelY =
-         cPositionError.GetY() * XY_POS_KP;
-      Real fTargetTransVelZ =
-         (m_cInputPosition.GetZ() - m_fTargetPositionZPrev) / GetPM3DEngine().GetPhysicsClockTick();
+      /* desired XYZ velocities */
+      Real fTargetTransVelX;
+      Real fTargetTransVelY;
+      Real fTargetTransVelZ;
+      if (m_cFlightSystemEntity.GetVelocityMode()) {
+         /* use input velocity as desired XYZ velocities */
+         fTargetTransVelX = m_cInputVelocity.GetX();
+         fTargetTransVelY = m_cInputVelocity.GetY();
+         fTargetTransVelZ = m_cInputVelocity.GetZ();
+      }
+      else {
+         /* store the positon errors */
+         m_cPositionError = m_cInputPosition - m_cPosition;
+         /* calculate the azimuth contribution to the navigation of drone on XY plane */
+         Real fAzimuth = std::atan2(std::abs(m_cPositionError.GetY()),
+                                std::abs(m_cPositionError.GetX()));
+         /* calculate velocity limits */
+         cVelocityLimitX = CRange<Real>(-XY_VEL_MAX * std::cos(fAzimuth), XY_VEL_MAX * std::cos(fAzimuth));
+         cVelocityLimitY = CRange<Real>(-XY_VEL_MAX * std::sin(fAzimuth), XY_VEL_MAX * std::sin(fAzimuth));
+         /* calculate desired XY velocities;  output of the XY position controller  */
+         fTargetTransVelX = m_cPositionError.GetX() * XY_POS_KP;
+         fTargetTransVelY = m_cPositionError.GetY() * XY_POS_KP;
+         fTargetTransVelZ = m_cPositionError.GetZ() * ALT_POS_KP;
+      }
+       /* accumulate the position errors */
+      m_cPositionCumulativeError += m_cPositionError * GetPM3DEngine().GetPhysicsClockTick();
       /* saturate velocities */
       cVelocityLimitX.TruncValue(fTargetTransVelX);
       cVelocityLimitY.TruncValue(fTargetTransVelY);
       cVelocityLimitZ.TruncValue(fTargetTransVelZ);
-      /* store the previous desired altitude for the altitude PID calculation */
-      m_fTargetPositionZPrev = m_cInputPosition.GetZ();
-      /* store XYZ velocity error */
+      /* store the velocity errors */
       CVector3 cTransVelocityError(fTargetTransVelX, fTargetTransVelY, fTargetTransVelZ);
       cTransVelocityError -= m_cVelocity;
-      /* calculate XY desired accelerations */
-      CVector3 cTargetTransAcc = cTransVelocityError * XY_VEL_KP;
+      /* calculate desired XYZ acceleration */
+      Real fTargetTransAccX  = cTransVelocityError.GetX() * XY_VEL_KP;
+      Real fTargetTransAccY  = cTransVelocityError.GetY() * XY_VEL_KP;
+      Real fTargetTransAccZ  = cTransVelocityError.GetZ() * ALT_VEL_KP;
+      /* store the desired XYZ acceleration */
+      CVector3 cTargetTransAcc(fTargetTransAccX, fTargetTransAccY, fTargetTransAccZ);
+      /* output of the velocity controllers */
+     Real fVelocityXControlSignal = CalculatePIDResponse(cTransVelocityError.GetX(),
+                                                          m_cPositionCumulativeError.GetX(),
+                                                          cTransVelocityError.GetX(),
+                                                          XY_VEL_KP,
+                                                          XY_VEL_KI,
+                                                          XY_VEL_KD) + cTargetTransAcc.GetX();
+      Real fVelocityYControlSignal = CalculatePIDResponse(cTransVelocityError.GetY(),
+                                                            m_cPositionCumulativeError.GetY(),
+                                                            cTransVelocityError.GetY(),
+                                                            XY_VEL_KP,
+                                                            XY_VEL_KI,
+                                                            XY_VEL_KD) + cTargetTransAcc.GetY();
+      Real fVelocityZControlSignal = MASS * GetPM3DEngine().GetGravity() +
+         CalculatePIDResponse(m_cPositionError.GetZ(),
+                              m_cPositionCumulativeError.GetZ(),
+                              cTransVelocityError.GetZ(),
+                              ALT_VEL_KP,
+                              ALT_VEL_KI,
+                              ALT_VEL_KD) / (std::cos(m_cOrientation.GetX()) * std::cos(m_cOrientation.GetY())) + cTargetTransAcc.GetZ();
+      /* store the control signals */
+      CVector3 cControlSignals(fVelocityXControlSignal, fVelocityYControlSignal, fVelocityZControlSignal);
       /* yaw angle correction to get downward Z axis in the right handed coordinate system */
       Real fYawAngleCorrected(m_cOrientation.GetZ() + M_PI);
       /* outputs of the position controller */
       Real fDesiredRollAngle = std::cos(m_cOrientation.GetY()) * std::cos(m_cOrientation.GetX()) *
-         (std::sin(fYawAngleCorrected) * cTargetTransAcc.GetX() - std::cos(fYawAngleCorrected) * cTargetTransAcc.GetY()) / m_cPM3DEngine.GetGravity();
+         (std::sin(fYawAngleCorrected) * cControlSignals.GetX() - std::cos(fYawAngleCorrected) * cControlSignals.GetY()) / m_cPM3DEngine.GetGravity();
       Real fDesiredPitchAngle = std::cos(m_cOrientation.GetY()) * std::cos(m_cOrientation.GetX()) *
-         (std::cos(fYawAngleCorrected) * cTargetTransAcc.GetX() + std::sin(fYawAngleCorrected) * cTargetTransAcc.GetY()) / m_cPM3DEngine.GetGravity();
-      Real fDesiredYawAngle = m_fInputYawAngle;
+         (std::cos(fYawAngleCorrected) * cControlSignals.GetX() + std::sin(fYawAngleCorrected) * cControlSignals.GetY()) / m_cPM3DEngine.GetGravity();
+      Real fDesiredYawAngle = m_cOrientation.GetZ();
+      if (!m_cFlightSystemEntity.GetVelocityMode()) {
+         fDesiredYawAngle = m_fInputYawAngle;
+      }
       /* saturate the outputs of the position controller */
       ROLL_PITCH_LIMIT.TruncValue(fDesiredRollAngle);
       ROLL_PITCH_LIMIT.TruncValue(fDesiredPitchAngle);
       /* store the desired orientation values in a  vector */
       CVector3 cOrientationTarget(fDesiredRollAngle, fDesiredPitchAngle, fDesiredYawAngle);
-      /* output of the altitude controller */
-      Real fAltitudeControlSignal = MASS * GetPM3DEngine().GetGravity() + 
-         CalculatePIDResponse(cPositionError.GetZ(),
-                              m_fAltitudeCumulativeError,
-                              cTransVelocityError.GetZ(),
-                              ALTITUDE_KP,
-                              ALTITUDE_KI,
-                              ALTITUDE_KD) / (std::cos(m_cOrientation.GetX()) * std::cos(m_cOrientation.GetY()));
       /*** attitude (roll, pitch, yaw) control ***/
       /* roll, pitch, yaw errors */
       CVector3 cOrientationError(cOrientationTarget - m_cOrientation);
+      /* Normalize yaw error to [-pi, pi] */
+      CRadians cOrientationYawError;
+      cOrientationYawError.SetValue(cOrientationError.GetZ());
+      cOrientationError.SetZ(cOrientationYawError.SignedNormalize().GetValue());
       /* desired  roll, pitch, yaw rates */
+      CVector3 cPrevTargetOrientationError = cOrientationTarget - m_cOrientationTargetPrev;
+      /* Normalize previous target orientation yaw error to [-pi, pi] */
+      CRadians cPrevTargetYawError;
+      cPrevTargetYawError.SetValue(cPrevTargetOrientationError.GetZ());
+      cPrevTargetOrientationError.SetZ(cPrevTargetYawError.SignedNormalize().GetValue());
       CVector3 cAngularVelocityTarget =
-         (cOrientationTarget - m_cOrientationTargetPrev) / GetPM3DEngine().GetPhysicsClockTick();
+         cPrevTargetOrientationError / GetPM3DEngine().GetPhysicsClockTick();
+      if (m_cFlightSystemEntity.GetVelocityMode()) {
+         cAngularVelocityTarget.SetZ(m_fInputYawVelocity);
+      }
       /* previous desired roll, pitch, yaw values for the controllers */
       m_cOrientationTargetPrev = cOrientationTarget;
       /* rotational rate errors */
@@ -182,7 +247,7 @@ namespace argos
                               ROLL_PITCH_KI,
                               ROLL_PITCH_KD);
       /* pitch controller output signal */
-      Real fAttitudeControlSignalY = INERTIA.GetY() * 
+      Real fAttitudeControlSignalY = INERTIA.GetY() *
          CalculatePIDResponse(cOrientationError.GetY(),
                               m_cAngularVelocityCumulativeError.GetY(),
                               cAngularVelocityError.GetY(),
@@ -190,7 +255,7 @@ namespace argos
                               ROLL_PITCH_KI,
                               ROLL_PITCH_KD);
       /* yaw controller output signal */
-      Real fAttitudeControlSignalZ = INERTIA.GetZ() * 
+      Real fAttitudeControlSignalZ = INERTIA.GetZ() *
          CalculatePIDResponse(cOrientationError.GetZ(),
                               m_cAngularVelocityCumulativeError.GetZ(),
                               cAngularVelocityError.GetZ(),
@@ -203,25 +268,25 @@ namespace argos
       TORQUE_LIMIT.TruncValue(fAttitudeControlSignalZ);
       /* calculate the rotor speeds from the control signals */
       std::array<Real, 4> arrSquaredRotorSpeeds = {
-         fAltitudeControlSignal / (4 * B) - 
+         cControlSignals.GetZ() / (4 * B) -
             fAttitudeControlSignalX * (ROOT_TWO / (4 * B * ARM_LENGTH)) -
             fAttitudeControlSignalY * (ROOT_TWO / (4 * B * ARM_LENGTH)) -
             fAttitudeControlSignalZ / (4 * D),
-         fAltitudeControlSignal / (4 * B) -
+         cControlSignals.GetZ() / (4 * B) -
             fAttitudeControlSignalX * (ROOT_TWO / (4 * B * ARM_LENGTH)) +
             fAttitudeControlSignalY * (ROOT_TWO / (4 * B * ARM_LENGTH)) +
             fAttitudeControlSignalZ / (4 * D),
-         fAltitudeControlSignal / (4 * B) +
+         cControlSignals.GetZ() / (4 * B) +
             fAttitudeControlSignalX * (ROOT_TWO / (4 * B * ARM_LENGTH)) +
             fAttitudeControlSignalY * (ROOT_TWO / (4 * B * ARM_LENGTH)) -
             fAttitudeControlSignalZ / (4 * D),
-         fAltitudeControlSignal / (4 * B) +
+         cControlSignals.GetZ() / (4 * B) +
             fAttitudeControlSignalX * (ROOT_TWO / (4 * B * ARM_LENGTH)) -
             fAttitudeControlSignalY * (ROOT_TWO / (4 * B * ARM_LENGTH)) +
             fAttitudeControlSignalZ / (4 * D),
       };
       /* calculate the effect of the rotor speed on the drone dynamics*/
-      Real fOmegaR = -std::sqrt(std::abs(arrSquaredRotorSpeeds[0])) + 
+      Real fOmegaR = -std::sqrt(std::abs(arrSquaredRotorSpeeds[0])) +
                       std::sqrt(std::abs(arrSquaredRotorSpeeds[1])) +
                      -std::sqrt(std::abs(arrSquaredRotorSpeeds[2])) +
                       std::sqrt(std::abs(arrSquaredRotorSpeeds[3]));
@@ -237,7 +302,7 @@ namespace argos
       /* saturate the thrust */
       THRUST_LIMIT.TruncValue(fThrust);
       /* calculate the system response: acceleration */
-      CVector3 cAcceleration {
+      m_cAccelerometer = {
          (std::cos(fYawAngleCorrected) * std::sin(m_cOrientation.GetY()) * std::cos(m_cOrientation.GetX()) +
           std::sin(fYawAngleCorrected) * std::sin(m_cOrientation.GetX())) * fThrust / MASS,
          (std::sin(fYawAngleCorrected) * std::sin(m_cOrientation.GetY()) * std::cos(m_cOrientation.GetX()) -
@@ -273,18 +338,18 @@ namespace argos
       m_cOrientation += m_cAngularVelocity * GetPM3DEngine().GetPhysicsClockTick();
       m_cAngularVelocityPrev = m_cAngularVelocity;
       /* accelerometer sensor readings */
-      cAcceleration.Set(
-         cAcceleration.GetX() + m_pcRNG->Gaussian(MEMS_ACCEL_NOISE_STD_DEV_X, MEMS_ACCEL_NOISE_MEAN) + m_fAccelBias,
-         cAcceleration.GetY() + m_pcRNG->Gaussian(MEMS_ACCEL_NOISE_STD_DEV_Y, MEMS_ACCEL_NOISE_MEAN) + m_fAccelBias,
-         cAcceleration.GetZ() + m_pcRNG->Gaussian(MEMS_ACCEL_NOISE_STD_DEV_Z, MEMS_ACCEL_NOISE_MEAN) + m_fAccelBias
+      m_cAccelerometer.Set(
+         m_cAccelerometer.GetX() + m_pcRNG->Gaussian(MEMS_ACCEL_NOISE_STD_DEV_X, MEMS_ACCEL_NOISE_MEAN) + m_fAccelBias,
+         m_cAccelerometer.GetY() + m_pcRNG->Gaussian(MEMS_ACCEL_NOISE_STD_DEV_Y, MEMS_ACCEL_NOISE_MEAN) + m_fAccelBias,
+         m_cAccelerometer.GetZ() + m_pcRNG->Gaussian(MEMS_ACCEL_NOISE_STD_DEV_Z, MEMS_ACCEL_NOISE_MEAN) + m_fAccelBias
       );
       m_fAccelBias += m_fVelocityRandomWalk *  m_pcRNG->Gaussian(MEMS_ACCEL_BIAS_STD_DEV, MEMS_ACCEL_BIAS_MEAN);
       /* update the accel bias velocity random walk */
       m_fVelocityRandomWalk *= std::sqrt(GetPM3DEngine().GetPhysicsClockTick());
       /* update the velocity using trapezoid integration */
-      cAcceleration = 0.5 * (m_cAccelerationPrev + cAcceleration);
-      m_cVelocity += cAcceleration * GetPM3DEngine().GetPhysicsClockTick();
-      m_cAccelerationPrev = cAcceleration;
+      m_cAccelerometer = 0.5 * (m_cAccelerationPrev + m_cAccelerometer);
+      m_cVelocity += m_cAccelerometer * GetPM3DEngine().GetPhysicsClockTick();
+      m_cAccelerationPrev = m_cAccelerometer;
       /* update the position using trapezoid integration */
       m_cVelocity = 0.5 * (m_cVelocityPrev + m_cVelocity);
       m_cPosition += m_cVelocity * GetPM3DEngine().GetPhysicsClockTick();
@@ -345,7 +410,7 @@ namespace argos
 
    bool CPointMass3DDroneModel::CheckIntersectionWithRay(Real &f_t_on_ray,
                                                          const CRay3 &c_ray) const {
-      const CQuaternion& cDroneOrientation = 
+      const CQuaternion& cDroneOrientation =
          GetEmbodiedEntity().GetOriginAnchor().Orientation;
       CVector3 cDroneAxis(CVector3::Z);
       cDroneAxis.Rotate(cDroneOrientation);
@@ -377,22 +442,25 @@ namespace argos
    const CVector3 CPointMass3DDroneModel::INERTIA = {0.01085, 0.01092, 0.02121};
    const Real CPointMass3DDroneModel::B = 1.1236e-5;
    const Real CPointMass3DDroneModel::D = 1.4088e-7;
-   const Real CPointMass3DDroneModel::JR = 5.225e-5; 
+   const Real CPointMass3DDroneModel::JR = 5.225e-5;
    /* Limits */
    const CRange<Real> CPointMass3DDroneModel::TORQUE_LIMIT = CRange<Real>(-0.5721, 0.5721);
    const CRange<Real> CPointMass3DDroneModel::THRUST_LIMIT = CRange<Real>(-15, 15);
-   const CRange<Real> CPointMass3DDroneModel::ROLL_PITCH_LIMIT = CRange<Real>(-0.5, 0.5);
-   const Real CPointMass3DDroneModel::XY_VEL_MAX = 1;
-   const Real CPointMass3DDroneModel::Z_VEL_MAX = 0.05;
+   const CRange<Real> CPointMass3DDroneModel::ROLL_PITCH_LIMIT = CRange<Real>(-0.1, 0.1);
+   const Real CPointMass3DDroneModel::XY_VEL_MAX = 5;
+   const Real CPointMass3DDroneModel::Z_VEL_MAX = 5;
    /* PID coefficients */
    const Real CPointMass3DDroneModel::XY_POS_KP = 1;
-   const Real CPointMass3DDroneModel::XY_VEL_KP = 3;
+   const Real CPointMass3DDroneModel::ALT_POS_KP = 1;
    const Real CPointMass3DDroneModel::YAW_KP = 13;
    const Real CPointMass3DDroneModel::YAW_KI = 0;
    const Real CPointMass3DDroneModel::YAW_KD = 8;
-   const Real CPointMass3DDroneModel::ALTITUDE_KP = 5;
-   const Real CPointMass3DDroneModel::ALTITUDE_KI = 0;
-   const Real CPointMass3DDroneModel::ALTITUDE_KD = 6;   
+   const Real CPointMass3DDroneModel::ALT_VEL_KP = 5;
+   const Real CPointMass3DDroneModel::ALT_VEL_KI = 0;
+   const Real CPointMass3DDroneModel::ALT_VEL_KD = 6;
+   const Real CPointMass3DDroneModel::XY_VEL_KP = 1;
+   const Real CPointMass3DDroneModel::XY_VEL_KI = 0;
+   const Real CPointMass3DDroneModel::XY_VEL_KD = 3;
    const Real CPointMass3DDroneModel::ROLL_PITCH_KP = 12;
    const Real CPointMass3DDroneModel::ROLL_PITCH_KI = 0;
    const Real CPointMass3DDroneModel::ROLL_PITCH_KD = 6;

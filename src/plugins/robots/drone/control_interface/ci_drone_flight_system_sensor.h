@@ -28,6 +28,7 @@ namespace argos {
          m_cOrientation(CVector3::ZERO),
          m_cTargetOrientation(CVector3::ZERO),
          m_cVelocity(CVector3::ZERO),
+         m_cTargetVelocity(CVector3::ZERO),
          m_cAngularVelocity(CVector3::ZERO),
          m_cAccelerometer(CVector3::ZERO),
          m_cMagnetometer(CVector3::ZERO),
@@ -44,6 +45,7 @@ namespace argos {
          m_cOrientation = CVector3::ZERO;
          m_cTargetOrientation = CVector3::ZERO;
          m_cVelocity = CVector3::ZERO;
+         m_cTargetVelocity = CVector3::ZERO;
          m_cAngularVelocity = CVector3::ZERO;
          m_cAccelerometer = CVector3::ZERO;
          m_cMagnetometer = CVector3::ZERO;
@@ -71,6 +73,10 @@ namespace argos {
 
       const CVector3& GetVelocity() const {
          return m_cVelocity;
+      }
+
+      const CVector3& GetTargetVelocity() const {
+         return m_cTargetVelocity;
       }
 
       const CVector3& GetAngularVelocity() const {
@@ -101,6 +107,7 @@ namespace argos {
       CVector3 m_cOrientation;
       CVector3 m_cTargetOrientation;
       CVector3 m_cVelocity;
+      CVector3 m_cTargetVelocity;
       CVector3 m_cAngularVelocity; 
       CVector3 m_cAccelerometer;
       CVector3 m_cMagnetometer;

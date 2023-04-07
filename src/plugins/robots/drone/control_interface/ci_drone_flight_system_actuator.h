@@ -23,12 +23,14 @@ namespace argos {
 
       CCI_DroneFlightSystemActuator() :
          m_cTargetPosition(CVector3::ZERO),
+         m_cTargetVelocity(CVector3::ZERO),
          m_cTargetYawAngle(0.0) {} 
 
       virtual ~CCI_DroneFlightSystemActuator() {}
 
       virtual void Reset() {
          m_cTargetPosition = CVector3::ZERO;
+         m_cTargetVelocity = CVector3::ZERO;
          m_cTargetYawAngle.SetValue(0.0);
       }
 
@@ -36,9 +38,18 @@ namespace argos {
           m_cTargetPosition = c_position;
       }
 
+      void SetTargetVelocity(const CVector3& c_velocity) {
+         m_cTargetVelocity = c_velocity;
+      }
+
       void SetTargetYawAngle(Real f_yaw_angle) {
          m_cTargetYawAngle.SetValue(f_yaw_angle);
          m_cTargetYawAngle.SignedNormalize();
+      }
+
+      void SetTargetYawVelocity(Real f_yaw_velocity) {
+         m_cTargetYawVelocity.SetValue(f_yaw_velocity);
+         m_cTargetYawVelocity.SignedNormalize();
       }
 
       virtual bool Ready() = 0;
@@ -53,7 +64,9 @@ namespace argos {
 
    protected:
       CVector3 m_cTargetPosition;
+      CVector3 m_cTargetVelocity;
       CRadians m_cTargetYawAngle;
+      CRadians m_cTargetYawVelocity;
    };
  
 }

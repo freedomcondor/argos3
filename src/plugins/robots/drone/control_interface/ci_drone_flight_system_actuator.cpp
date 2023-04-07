@@ -94,6 +94,32 @@ namespace argos {
 
 #ifdef ARGOS_WITH_LUA
    /*
+    * The stack must have one value:
+    * 1. target velocity (vector3)
+    */
+   int LuaSetDroneFlightSystemTargetVelocity(lua_State* pt_lua_state) {
+      /* Check parameters */
+      if(lua_gettop(pt_lua_state) != 2) {
+         return luaL_error(pt_lua_state, "robot.flight_system.set_target_velocity() expects 2 arguments");
+      }
+      luaL_checktype(pt_lua_state, 1, LUA_TUSERDATA);
+      luaL_checktype(pt_lua_state, 2, LUA_TNUMBER);
+      /* Get actuator instance */
+      CCI_DroneFlightSystemActuator* pcFlightSystemActuator =
+         CLuaUtility::GetDeviceInstance<CCI_DroneFlightSystemActuator>(pt_lua_state, "flight_system");
+      /* Update actuator */
+      const CVector3& cTargetVelocity = CLuaVector3::ToVector3(pt_lua_state, 1);
+      pcFlightSystemActuator->SetTargetVelocity(cTargetVelocity);
+      pcFlightSystemActuator->SetTargetYawVelocity(lua_tonumber(pt_lua_state, 2));
+      return 0;
+   }
+#endif
+
+   /****************************************/
+   /****************************************/
+
+#ifdef ARGOS_WITH_LUA
+   /*
     * The stack must have zero values
     */
    int LuaIsDroneFlightSystemReady(lua_State* pt_lua_state) {
@@ -129,6 +155,9 @@ namespace argos {
       CLuaUtility::AddToTable(pt_lua_state,
                               "set_target_pose",
                               &LuaSetDroneFlightSystemTargetPose);
+      CLuaUtility::AddToTable(pt_lua_state,
+                              "set_target_velocity",
+                              &LuaSetDroneFlightSystemTargetVelocity);
       CLuaUtility::CloseRobotStateTable(pt_lua_state);
    }
 #endif

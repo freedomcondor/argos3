@@ -38,6 +38,12 @@ namespace argos {
    void CDroneFlightSystemDefaultActuator::Init(TConfigurationNode& t_tree) {
       try {
          CCI_DroneFlightSystemActuator::Init(t_tree);
+         bool bIdealMode = false;
+         GetNodeAttributeOrDefault(t_tree, "ideal_mode", bIdealMode, bIdealMode);
+         m_pcFlightSystemEntity->SetIdealMode(bIdealMode);
+         bool bVelocityMode = false;
+         GetNodeAttributeOrDefault(t_tree, "velocity_mode", bVelocityMode, bVelocityMode);
+         m_pcFlightSystemEntity->SetVelocityMode(bVelocityMode);
       }
       catch(CARGoSException& ex) {
          THROW_ARGOSEXCEPTION_NESTED("Initialization error in the drone flight system actuator.", ex);
@@ -49,7 +55,9 @@ namespace argos {
 
    void CDroneFlightSystemDefaultActuator::Update() {
       m_pcFlightSystemEntity->SetTargetPosition(m_cTargetPosition);
+      m_pcFlightSystemEntity->SetTargetVelocity(m_cTargetVelocity);
       m_pcFlightSystemEntity->SetTargetYawAngle(m_cTargetYawAngle);
+      m_pcFlightSystemEntity->SetTargetYawVelocity(m_cTargetYawVelocity);
    }
 
    /****************************************/

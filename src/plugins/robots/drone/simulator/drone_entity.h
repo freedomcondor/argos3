@@ -13,6 +13,7 @@ namespace argos {
    class CDroneFlightSystemEntity;
    class CEmbodiedEntity;
    class CRadioEquippedEntity;
+   class CTagEquippedEntity;
 }
 
 #include <argos3/core/simulator/entity/composable_entity.h>
@@ -73,6 +74,14 @@ namespace argos {
          return *m_pcRadioEquippedEntity;
       }
 
+      inline CTagEquippedEntity& GetTagEquippedEntity() {
+         return *m_pcTagEquippedEntity;
+      }
+
+      inline const CTagEquippedEntity& GetTagEquippedEntity() const {
+         return *m_pcTagEquippedEntity;
+      }
+
       inline bool IsDebug() const {
          return m_bDebug;
       }
@@ -86,8 +95,11 @@ namespace argos {
       CEmbodiedEntity*               m_pcEmbodiedEntity;
       CDroneFlightSystemEntity*      m_pcFlightSystemEntity;
       CRadioEquippedEntity*          m_pcRadioEquippedEntity;
+      CTagEquippedEntity*            m_pcTagEquippedEntity;
       /* constants */
       static const Real WIFI_TRANSMISSION_RANGE;
+      static const Real TAG_SIDE_LENGTH;
+      static const CVector3 TAG_OFFSET_POSITION;
       /* debug flag */
       bool m_bDebug;
    };

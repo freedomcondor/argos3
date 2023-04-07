@@ -13,8 +13,10 @@
 
 #include <argos3/plugins/simulator/entities/directional_led_equipped_entity.h>
 #include <argos3/plugins/simulator/entities/radio_equipped_entity.h>
+#include <argos3/plugins/simulator/entities/tag_equipped_entity.h>
 #include <argos3/plugins/simulator/media/directional_led_medium.h>
 #include <argos3/plugins/simulator/media/radio_medium.h>
+#include <argos3/plugins/simulator/media/tag_medium.h>
 
 #include <argos3/plugins/robots/drone/simulator/drone_flight_system_entity.h>
 
@@ -24,6 +26,9 @@ namespace argos {
    /****************************************/
 
    const Real CDroneEntity::WIFI_TRANSMISSION_RANGE = 10.0;
+
+   const Real CDroneEntity::TAG_SIDE_LENGTH = 0.0235;
+   const CVector3 CDroneEntity::TAG_OFFSET_POSITION = {0.0, 0.0, 0.25};
 
    /****************************************/
    /****************************************/
@@ -35,6 +40,7 @@ namespace argos {
       m_pcEmbodiedEntity(nullptr),
       m_pcFlightSystemEntity(nullptr),
       m_pcRadioEquippedEntity(nullptr),
+      m_pcTagEquippedEntity(nullptr),
       m_bDebug(false) {}
 
    /****************************************/
@@ -66,6 +72,22 @@ namespace argos {
             m_pcRadioEquippedEntity->Enable();
          }
          AddComponent(*m_pcRadioEquippedEntity);
+         /* create and initialize the tags */
+         m_pcTagEquippedEntity = new CTagEquippedEntity(this, "tags_0");
+         m_pcTagEquippedEntity->AddTag("tag_0",
+                                       TAG_OFFSET_POSITION,
+                                       CQuaternion(),
+                                       m_pcEmbodiedEntity->GetOriginAnchor(),
+                                       CRadians::PI_OVER_THREE,
+                                       TAG_SIDE_LENGTH,
+                                       GetId());
+         std::string strTagMedium("tags");
+         GetNodeAttributeOrDefault(t_tree, "tag_medium", strTagMedium, strTagMedium);
+         CTagMedium& cTagMedium =
+            CSimulator::GetInstance().GetMedium<CTagMedium>(strTagMedium);
+         m_pcTagEquippedEntity->SetMedium(cTagMedium);
+         m_pcTagEquippedEntity->Enable();
+         AddComponent(*m_pcTagEquippedEntity);
          /* create and initialize the directional LED equipped entity */
          m_pcDirectionalLEDEquippedEntity = new CDirectionalLEDEquippedEntity(this, "leds_0");
          m_pcDirectionalLEDEquippedEntity->AddLED("led_0",

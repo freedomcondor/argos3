@@ -289,7 +289,15 @@ namespace argos {
       /* try to convert tag payload to an unsigned integer */
       UInt32 unId = 0;
       try {
-         unId = std::stoul(c_tag.GetPayload());
+         std::string strId(c_tag.GetPayload());
+         auto itRemove =
+            std::remove_if(std::begin(strId),
+                           std::end(strId),
+                           [] (char ch) {
+                              return (std::isdigit(ch) == 0);
+                           });
+         strId.erase(itRemove, std::end(strId));
+         unId = std::stoul(strId);
       }
       catch(const std::logic_error& err_logic) {
          THROW_ARGOSEXCEPTION("Tag payload \"" << c_tag.GetPayload() << "\" can not be converted to an unsigned integer");

@@ -149,13 +149,13 @@ namespace argos {
 
    const UInt32 CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_RESOLUTION_X = 700;
    const UInt32 CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_RESOLUTION_Y = 700;
-   const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_FOCAL_LENGTH_X = 1040.0;
-   const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_FOCAL_LENGTH_Y = 1040.0;
+   const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_FOCAL_LENGTH_X = 864.0;
+   const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_FOCAL_LENGTH_Y = 864.0;
    const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_PRINCIPAL_POINT_X = 350.0;
    const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_PRINCIPAL_POINT_Y = 350.0;
    const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_XY_OFFSET = 0.12;
    const Real CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_Z_OFFSET = 0.16;
-   const CDegrees CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_ANGLE = CDegrees(180 - 18);
+   const CDegrees CCI_DroneCamerasSystemSensor::DEFAULT_CAMERA_ANGLE = CDegrees(180 - 22);
 
    /****************************************/
    /****************************************/

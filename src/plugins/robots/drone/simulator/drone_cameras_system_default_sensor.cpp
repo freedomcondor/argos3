@@ -14,7 +14,7 @@
 #include <argos3/plugins/simulator/media/tag_medium.h>
 
 #define CAMERA_RANGE_MIN 0.001
-#define CAMERA_RANGE_MAX 1.800
+#define CAMERA_RANGE_MAX 30.000
 
 namespace argos {
 
